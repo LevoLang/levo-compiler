@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "levo-compiler"
+name = "levoc"
 version = "0.1.0"

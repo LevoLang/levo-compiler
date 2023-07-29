@@ -1,8 +1,17 @@
 [package]
-name = "levo-compiler"
+name = "levoc"
 version = "0.1.0"
+authors = [ "Ahraman" ]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+rust-version = "1.69.0"
+repository = "https://github.com/LevoLang/levo-compiler"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-file = "LICENSE"
+description = """
+A compiler for the Levo programming language written in Rust.
+"""
+keywords = [ "compiler", "levo" ]
+categories = [ "compilers" ]
 
 [dependencies]
