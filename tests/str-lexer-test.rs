@@ -3,7 +3,7 @@ fn str_lexer_test() {
     use levoc::parse::lex::{Lex, Lexer};
 
     let texts = [
-        "abc32+bec_*(c232d-d_3u2s)",
+        "abc32 + bec_ * (c232d - d_3u2s)",
     ];
 
     for (num, text) in texts.iter().enumerate() {

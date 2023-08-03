@@ -153,6 +153,8 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         // For the sake of convenience, allow using TokenKind variants directly.
         use TokenKind::*;
 
+        self.skip_whitespace();
+
         if let Some(ch) = self.cur.peek().copied() {
             match ch {
                 '+' => {
@@ -190,6 +192,15 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
             }
         } else {
             Err(LexError::from(LexErrorKind::EOF))
+        }
+    }
+
+    fn skip_whitespace(&mut self) {
+        while let Some(ch) = self.cur.peek().copied() {
+            match ch {
+                ' ' | '\n' | '\r' | '\t' => self.cur.next(),
+                _ => break,
+            };
         }
     }
 
