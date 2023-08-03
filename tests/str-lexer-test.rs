@@ -14,7 +14,7 @@ a + b
 
 #[test]
 fn str_lexer_test() {
-    use levoc::parse::lex::{Lex, Lexer};
+    use levoc::lex::{Lex, Lexer};
 
     for (num, text) in TEXTS.iter().enumerate() {
         println!("==========");
