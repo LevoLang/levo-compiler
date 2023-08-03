@@ -150,55 +150,113 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         // For the sake of convenience, allow using TokenKind variants directly.
         use TokenKind::*;
 
-        self.skip_whitespace();
+        loop {
+            self.skip_whitespace();
 
-        if let Some(ch) = self.cur.peek().copied() {
-            match ch {
-                '+' => {
-                    self.cur.next();
-                    Ok(Token { kind: Plus, len: 1 })
-                },
-                '-' => {
-                    self.cur.next();
-                    Ok(Token { kind: Minus, len: 1 })
-                },
-                '*' => {
-                    self.cur.next();
-                    Ok(Token { kind: Asterisk, len: 1 })
-                },
-                '/' => {
-                    self.cur.next();
-                    Ok(Token { kind: Slash, len: 1 })
+            let res = if let Some(ch) = self.cur.peek().copied() {
+                match ch {
+                    '+' => {
+                        self.cur.next();
+                        Ok(Token { kind: Plus, len: 1 })
+                    },
+                    '-' => {
+                        self.cur.next();
+                        Ok(Token { kind: Minus, len: 1 })
+                    },
+                    '*' => {
+                        self.cur.next();
+                        Ok(Token { kind: Asterisk, len: 1 })
+                    },
+                    '/' => {
+                        self.cur.next();
+                        if let Some(ch) = self.cur.peek().copied() {
+                            if ch == '/' {
+                                self.skip_line_comment();
+                                continue;
+                            } else if ch == '*' {
+                                self.skip_block_comment(1);
+                                continue;
+                            }
+                        }
+
+                        Ok(Token { kind: Slash, len: 1 })
+                    }
+                    '%' => {
+                        self.cur.next();
+                        Ok(Token { kind: Percent, len: 1 })
+                    },
+
+                    '(' => { self.cur.next();
+                        Ok(Token { kind: LeftParen, len: 1 })
+                    },
+
+                    ')' => { self.cur.next();
+                        Ok(Token { kind: RightParen, len: 1 })
+                    },
+
+                    'a'..='z' | 'A'..='Z' => self.lex_ident(),
+
+                    _ => todo!(),
                 }
-                '%' => {
-                    self.cur.next();
-                    Ok(Token { kind: Percent, len: 1 })
-                },
+            } else {
+                Err(LexError::from(LexErrorKind::EOF))
+            };
 
-                '(' => { self.cur.next();
-                    Ok(Token { kind: LeftParen, len: 1 })
-                },
-
-                ')' => { self.cur.next();
-                    Ok(Token { kind: RightParen, len: 1 })
-                },
-
-                'a'..='z' | 'A'..='Z' => self.lex_ident(),
-
-                _ => todo!(),
-            }
-        } else {
-            Err(LexError::from(LexErrorKind::EOF))
+            return res;
         }
     }
 
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> bool {
+        let mut any = false;
+
         while let Some(ch) = self.cur.peek().copied() {
             match ch {
                 ' ' | '\n' | '\r' | '\t' => self.cur.next(),
                 _ => break,
             };
+
+            any = true;
         }
+
+        any
+    }
+
+    fn skip_line_comment(&mut self) -> bool {
+        while let Some(ch) = self.cur.next() {
+            if ch == '\n' {
+                break;
+            }
+        }
+
+        true
+    }
+
+    fn skip_block_comment(&mut self, rec: u32) -> bool {
+        let mut first = true;
+        //let mut is_doc = false;
+
+        while let Some(ch0) = self.cur.next() {
+            if ch0 == '*' {
+                if let Some(ch1) = self.cur.next() {
+                    if ch1 == '/' {
+                        break;
+                    }
+                } else if first && rec == 1 {
+                    //is_doc = true;
+                } 
+            }
+            else if ch0 == '/' {
+                if let Some(ch1) = self.cur.next() {
+                    if ch1 == '*' {
+                        self.skip_block_comment(rec + 1);
+                    }
+                }
+            }
+
+            first = false;
+        }
+
+        true
     }
 
     fn lex_ident(&mut self) -> Result<Token> {
