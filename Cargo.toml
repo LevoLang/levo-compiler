@@ -6,7 +6,6 @@ edition = "2021"
 rust-version = "1.71.0"
 repository = "https://github.com/LevoLang/levo-compiler"
 readme = "README.md"
-license = "GPL-3.0-or-later"
 license-file = "LICENSE"
 description = """
 A compiler for the Levo programming language written in Rust.
