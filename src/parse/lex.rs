@@ -1,6 +1,7 @@
 // Imports
 
 use core::fmt;
+use std::collections::HashSet;
 use std::error;
 
 // Start
@@ -43,12 +44,12 @@ impl fmt::Display for LexError {
     }
 }
 
-pub struct Token {
-    kind: TokenKind,
+pub struct Token<'a> {
+    kind: TokenKind<'a>,
     len: usize,
 }
 
-impl Token {
+impl Token<'_> {
     pub fn kind(&self) -> &TokenKind {
         &self.kind
     }
@@ -57,18 +58,14 @@ impl Token {
         self.kind.class()
     }
 
-    pub fn is_literal(&self) -> bool {
-        self.kind.is_literal()
-    }
-
     pub fn len(&self) -> usize { self.len }
 }
 
-impl fmt::Display for Token {
+impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
-            TokenKind::Ident { name } => write!(f, "Ident: {}", name),
-            TokenKind::IntLit { text } => write!(f, "IntLit: {}", text),
+            TokenKind::Ident { name } => write!(f, "Ident: '{}'", name),
+            TokenKind::IntLit { text } => write!(f, "IntLit: '{}'", text),
             TokenKind::Plus => write!(f, "Plus"),
             TokenKind::Minus => write!(f, "Minus"),
             TokenKind::Asterisk => write!(f, "Asterisk"),
@@ -81,13 +78,13 @@ impl fmt::Display for Token {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TokenKind {
+pub enum TokenKind<'a> {
     Ident { 
-        name: String,
+        name: &'a String,
     },
 
     IntLit {
-        text: String,
+        text: &'a String,
     },
 
     Plus, // +
@@ -100,17 +97,13 @@ pub enum TokenKind {
     RightParen, // )
 }
 
-impl TokenKind {
+impl TokenKind<'_> {
     pub fn class(&self) -> TokenClass {
         match self {
             Self::IntLit { text: _ } => TokenClass::Lit,
 
             _ => TokenClass::Punc,
         }
-    }
-
-    pub fn is_literal(&self) -> bool {
-        self.class() == TokenClass::Lit
     }
 }
 
@@ -131,14 +124,18 @@ use std::iter::Peekable;
 pub struct Lexer<I> where I: Iterator<Item = char> {
     cur: Peekable<I>,
 
+    pub(crate) names: HashSet<String>,
     ident_buf: String,
 }
 
-pub fn create_lexer<I>(i: I) -> Lexer<I> where I: Iterator<Item = char> {
-    Lexer { 
-        cur: i.peekable(),
-
-        ident_buf: String::with_capacity(32),
+impl<I> Lexer<I> where I: Iterator<Item = char> {
+    pub fn new(i: I) -> Self {
+        Self { 
+            cur: i.peekable(),
+    
+            names: HashSet::new(),
+            ident_buf: String::with_capacity(32),
+        }
     }
 }
 
@@ -234,7 +231,8 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         if self.ident_buf.is_empty() {
             Err(LexError::from(LexErrorKind::WrongClass))
         } else {
-            Ok(Token { kind: Ident { name: self.ident_buf.clone() }, len: self.ident_buf.len() })
+            self.names.insert(self.ident_buf.clone());
+            Ok(Token { kind: Ident { name: self.names.get(&self.ident_buf).unwrap() }, len: self.ident_buf.len() })
         }
     }
 
