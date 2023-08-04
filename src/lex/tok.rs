@@ -79,6 +79,22 @@ pub enum TokenKind {
     },
 }
 
+impl TokenKind {
+    pub fn is_trivia(&self) -> bool {
+        use TokenKind::*;
+        match self {
+            Whitespace(_) | Comment { .. } => true,
+            _ => false,
+        }
+    }
+}
+
+impl Token {
+    pub fn is_trivia(&self) -> bool {
+        self.kind.is_trivia()
+    }
+}
+
 impl fmt::Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use TokenKind::*;

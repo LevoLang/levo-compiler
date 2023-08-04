@@ -15,9 +15,9 @@ pub struct Lexer<I: Iterator<Item = char>> {
 }
 
 impl<I> Lexer<I> where I: Iterator<Item = char> {
-    pub fn new(it: I) -> Self {
+    pub fn new(iter: I) -> Self {
         Self {
-            iter: it,
+            iter: iter,
 
             buf: Vec::with_capacity(64),
             cur: 0,
@@ -42,6 +42,7 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
         len != self.buf.len()
     }
 
+    #[inline]
     fn peek(&mut self) -> Option<char> {
         self.peek_nth(0)
     }
@@ -59,6 +60,7 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
         }
     }
 
+    #[inline]
     fn advance(&mut self) -> Option<char> {
         self.advance_by(1)
     }
@@ -99,5 +101,68 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
 impl<I> Lex for Lexer<I> where I: Iterator<Item = char> {
     fn lex(&mut self) -> Option<Token> {
         self.lex_token()
+    }
+}
+
+impl<I> IntoIterator for Lexer<I> where I: Iterator<Item = char> {
+    type Item = Token;
+
+    type IntoIter = TokenIter<Lexer<I>>;
+
+    fn into_iter(self) -> TokenIter<Lexer<I>> {
+        TokenIter::new(self)
+    }
+}
+
+pub struct TokenIter<L: Lex> {
+    lexer: L
+}
+
+impl<L> TokenIter<L> where L: Lex {
+    pub(self) fn new(lexer: L) -> Self {
+        Self {
+            lexer: lexer
+        }
+    }
+
+    pub fn skip_trivia(self) -> SkipTrivia<Self> {
+        SkipTrivia::new(self)
+    }
+}
+
+impl<L> Iterator for TokenIter<L> where L: Lex {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        self.lexer.lex()
+    }
+}
+
+pub struct SkipTrivia<I: Iterator<Item = Token>> {
+    iter: I,
+}
+
+impl<I> SkipTrivia<I> where I: Iterator<Item = Token> {
+    pub(self) fn new(iter: I) -> Self {
+        Self { iter: iter }
+    }
+}
+
+impl<I> Iterator for SkipTrivia<I> where I: Iterator<Item = Token> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        loop {
+            return match self.iter.next() {
+                Some(token) => {
+                    if token.is_trivia() {
+                        continue
+                    } else {
+                        Some(token)
+                    }
+                },
+                None => None,
+            };
+        }
     }
 }
