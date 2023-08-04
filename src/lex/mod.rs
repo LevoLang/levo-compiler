@@ -1,7 +1,5 @@
 use std::cmp::min;
 
-use crate::chars;
-
 mod tok;
 pub use tok::*;
 
