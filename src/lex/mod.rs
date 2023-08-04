@@ -1,6 +1,8 @@
 use std::cmp::min;
 use std::fmt;
 
+use crate::chars;
+
 pub struct Token {
     kind: TokenKind,
     len: u32,
@@ -56,6 +58,12 @@ pub enum TokenKind {
 
     // trivia
     Whitespace(WhitespaceKind),
+    Comment {
+        kind: CommentKind,
+        style: CommentStyle,
+        content: String,
+        terminated: bool
+    },
 
     // miscellaneous
     Bad {
@@ -81,15 +89,58 @@ impl fmt::Display for TokenKind {
             TokenKind::OpenDelim(kind) => write!(f, "OpenDelim({kind})"),
             TokenKind::CloseDelim(kind) => write!(f, "CloseDelim({kind})"),
             TokenKind::Whitespace(kind) => write!(f, "Whitespace({kind})"),
-            TokenKind::Bad { message } => write!(f, "Bad: {{ message: {message} }}"),
+            TokenKind::Bad { message } => write!(f, "Bad: {{ message: \"{message} \" }}"),
+            TokenKind::Comment { kind, style, content, terminated}
+                 => write!(f, "Comment: {{ kind: {kind}, style: {style}, message: \"{}\", \
+                                terminated: {terminated} }}",
+                                preview_content(content.trim())),
         }
     }
 }
 
-pub enum CommentStyle {
-    None,
+fn preview_content(cont: &str) -> String {
+    const MAX_CONTENT_LEN: usize = 40;
+
+    if cont.len() < MAX_CONTENT_LEN {
+        cont.to_owned()
+    } else {
+        cont.chars()
+            .take(MAX_CONTENT_LEN - 3)
+            .chain("...".chars())
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommentKind {
+    Normal,
+    Doc,
     InnerDoc,
-    OuterDoc,
+}
+
+impl fmt::Display for CommentKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CommentKind::Normal => write!(f, "Normal"),
+            CommentKind::Doc => write!(f, "Doc"),
+            CommentKind::InnerDoc => write!(f, "InnerDoc"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommentStyle {
+    Line,
+    Block,
+}
+
+impl fmt::Display for CommentStyle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CommentStyle::Line => write!(f, "Line"),
+            CommentStyle::Block => write!(f, "Block"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -188,10 +239,9 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
         let cap = self.buf.capacity();
         let len = self.buf.len();
         while let Some(c) = self.iter.next() {
+            self.buf.push(c);
             if self.buf.len() >= cap {
                 break;
-            } else {
-                self.buf.push(c);
             }
         }
 
@@ -236,15 +286,18 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
     }
 
     fn calibrate_buf(&mut self) {
-        let end = self.buf.len();
-        if self.cur != 0 && self.cur * 2 >= end {
+        let cap = self.buf.capacity();
+        if self.buf.len() == self.buf.capacity()
+            && (self.cur != 0 && self.cur * 2 >= cap) {
             // The cursor is in the 2nd half of the buffer.
-
+            let end = self.buf.len();
             let start = min(self.cur, end);
+
             self.buf.copy_within(start..end, 0);
             self.buf.truncate(end - start);
-            self.read_full();
             self.cur = 0;
+
+            self.read_full();
         }
     }
 }
@@ -256,7 +309,18 @@ impl<I> Lex for Lexer<I> where I: Iterator<Item = char> {
         let start = self.cur;
         if let Some(first_char) = self.advance() {
             let kind = match first_char {
-                '/' => Slash,
+                '/' => match self.peek() {
+                    Some('/') => {
+                        self.advance();
+                        self.scan_comment(CommentStyle::Line)
+                    },
+                    Some('*') => {
+                        self.advance();
+                        self.scan_comment(CommentStyle::Block) 
+                    },
+                    
+                    _ => Slash,
+                },
 
                 '.' => Dot,
                 ',' => Comma,
@@ -277,7 +341,7 @@ impl<I> Lex for Lexer<I> where I: Iterator<Item = char> {
                 '[' => OpenDelim(Delimiter::Bracket),
                 ']' => CloseDelim(Delimiter::Bracket),
 
-                c if c.is_whitespace() => self.scan_whitespace(c),
+                c if chars::is_whitespace(c) => self.scan_whitespace(c),
 
                 _ => Unknown,
             };
@@ -293,7 +357,7 @@ impl<I> Lex for Lexer<I> where I: Iterator<Item = char> {
 
 impl <I> Lexer<I> where I: Iterator<Item = char> {
     fn scan_whitespace(&mut self, first: char) -> TokenKind {
-        assert!(first.is_whitespace());
+        assert!(chars::is_whitespace(first));
 
         let mut kind = WhitespaceKind::from(first);
         // Handling the case where whitespace is CRLF
@@ -325,5 +389,80 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         }
 
         TokenKind::Whitespace(kind)
+    }
+
+    fn scan_comment(&mut self, style: CommentStyle) -> TokenKind {
+        // This function assumes that we already have entered the comment area
+
+        // Guard for empty block comments.
+        if style == CommentStyle::Block
+            && self.peek() == Some('*')
+            && self.peek_nth(1) == Some('/') {
+            return TokenKind::Comment {
+                kind: CommentKind::Normal,
+                style: CommentStyle::Block,
+                content: String::new(),
+                terminated: true
+            }
+        }
+
+        let kind = match self.peek() {
+            Some('/') if style == CommentStyle::Line => CommentKind::Doc,
+            Some('*') if style == CommentStyle::Block => CommentKind::Doc,
+            Some('!') => CommentKind::InnerDoc,
+            _ => CommentKind::Normal,
+        };
+
+        if kind != CommentKind::Normal {
+            self.advance();
+        }
+
+        let start = self.cur;
+
+        let mut last_char: char = char::default();
+        let mut terminated = false;
+        let mut nest: u32 = 1;
+        while let Some(c) = self.advance() {
+            if style == CommentStyle::Line && chars::is_newline(c) {
+                terminated = true;
+                last_char = c;
+                break;
+            } else if style == CommentStyle::Block && c == '*' && self.peek() == Some('/') {
+                self.advance();
+                nest -= 1;
+                
+                if nest == 0 {
+                    terminated = true;
+                    break;
+                }
+            } else if style == CommentStyle::Block && c == '/' && self.peek() == Some('*') {
+                self.advance();
+                nest += 1;
+            }
+        }
+
+        let len = if !terminated {
+            self.cur - start
+        } else if style == CommentStyle::Line {
+            // Line comments include their end-of-line characters in their content, so if a line 
+            // comment ends with CRLF, it should include the line feed at the end as well.
+            if last_char == '\r' && self.peek() == Some('\n') {
+                self.advance();
+            }
+
+            self.cur - start
+        } else { // style == CommentStyle::Block
+            self.cur - start - 2
+        };
+
+        TokenKind::Comment{
+            kind: kind,
+            style: style,
+            content: self.buf.iter()
+                                .skip(start)
+                                .take(len)
+                                .collect(),
+            terminated: terminated,
+        }
     }
 }
