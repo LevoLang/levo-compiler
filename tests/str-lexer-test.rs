@@ -1,4 +1,4 @@
-const TEXTS: [&str; 4] = [
+const TEXTS: [&str; 5] = [
 // simple expression
 r"abc32 + bec_ * (c232d - d_3u2s)",
 
@@ -37,7 +37,13 @@ r"/* Second commend test */
 /* This is a non-terminated block comment because it has no ending",
 
 // whitespace
-"/* This is a whitespace test */\n\r\n\t\t       \t\t\n\n\n\r\n\r\n\r\n\r\r\r\n"
+"/* This is a whitespace test */\n\r\n\t\t       \t\t\n\n\n\r\n\r\n\r\n\r\r\r\n",
+
+// identifiers and literals
+r"i = 34;
+r = 35.4;
+f = 32 + 3e12;
+l = r+35.4e10;"
 ];
 
 #[test]
