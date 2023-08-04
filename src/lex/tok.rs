@@ -339,8 +339,6 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
                 ';' => Semicolon,
                 ':' => Colon,
 
-                c @ ('+' | '-') if self.peek().is_some_and(chars::is_digit) => self.scan_num_lit(c),
-
                 '+' => Plus,
                 '-' => Minus,
                 '*' => Asterisk,
