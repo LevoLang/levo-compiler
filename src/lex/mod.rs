@@ -1,312 +1,329 @@
-// Imports
+use std::cmp::min;
+use std::fmt;
 
-use core::fmt;
-use std::collections::HashSet;
-use std::error;
-
-// Start
-
-pub type Result<T> = std::result::Result<T, LexError>;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LexError {
-    kind: LexErrorKind,
+pub struct Token {
+    kind: TokenKind,
+    len: u32,
 }
 
-impl LexError {
-    pub fn kind(&self) -> LexErrorKind {
-        self.kind
-    }
-}
-
-impl From<LexErrorKind> for LexError {
-    fn from(value: LexErrorKind) -> Self {
-        LexError { kind: value }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LexErrorKind {
-    BadToken,
-    WrongClass,
-    EOF,
-}
-
-impl error::Error for LexError {}
-
-impl fmt::Display for LexError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.kind {
-            LexErrorKind::BadToken => write!(f, "Bad token encountered"),
-            LexErrorKind::WrongClass => write!(f, "Wrong token class encountered"),
-            LexErrorKind::EOF => write!(f, "End of file reached"),
+impl Token {
+    pub fn new(kind: TokenKind, len: u32) -> Self {
+        Self {
+            kind: kind,
+            len: len,
         }
     }
-}
 
-pub struct Token<'a> {
-    kind: TokenKind<'a>,
-    len: usize,
-}
-
-impl Token<'_> {
     pub fn kind(&self) -> &TokenKind {
         &self.kind
     }
 
-    pub fn class(&self) -> TokenClass {
-        self.kind.class()
+    pub fn len(&self) -> u32 {
+        self.len
     }
-
-    pub fn len(&self) -> usize { self.len }
 }
 
-impl fmt::Display for Token<'_> {
+impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.kind {
-            TokenKind::Ident { name } => write!(f, "Ident: '{}'", name),
-            TokenKind::IntLit { text } => write!(f, "IntLit: '{}'", text),
+        let Token { kind, len } = self;
+        write!(f, "Token {{ kind: {kind}, len: {len} }}")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenKind {
+    Unknown,
+
+    //Ident(Ident),
+    //Lit(Lit),
+
+    // punctuation
+    Dot,        // .
+    Comma,      // ,
+    Semicolon,  // ;
+    Colon,      // :
+
+    // operators
+    Plus,       // +
+    Minus,      // -
+    Asterisk,   // *
+    Slash,      // /
+    Percent,    // %
+
+    // delimiters
+    OpenDelim(Delimiter),
+    CloseDelim(Delimiter),
+
+    // trivia
+    Whitespace(WhitespaceKind),
+
+    // miscellaneous
+    Bad {
+        message: &'static str
+    },
+}
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenKind::Unknown => write!(f, "Unknown"),
+
+            TokenKind::Dot => write!(f, "Dot"),
+            TokenKind::Comma => write!(f, "Comma"),
+            TokenKind::Semicolon => write!(f, "Semicolon"),
+            TokenKind::Colon => write!(f, "Colon"),
+
             TokenKind::Plus => write!(f, "Plus"),
             TokenKind::Minus => write!(f, "Minus"),
             TokenKind::Asterisk => write!(f, "Asterisk"),
             TokenKind::Slash => write!(f, "Slash"),
             TokenKind::Percent => write!(f, "Percent"),
-            TokenKind::LeftParen => write!(f, "LeftParen"),
-            TokenKind::RightParen => write!(f, "RightParen"),
+            TokenKind::OpenDelim(kind) => write!(f, "OpenDelim({kind})"),
+            TokenKind::CloseDelim(kind) => write!(f, "CloseDelim({kind})"),
+            TokenKind::Whitespace(kind) => write!(f, "Whitespace({kind})"),
+            TokenKind::Bad { message } => write!(f, "Bad: {{ message: {message} }}"),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TokenKind<'a> {
-    Ident { 
-        name: &'a String,
-    },
-
-    IntLit {
-        text: &'a String,
-    },
-
-    Plus, // +
-    Minus, // -
-    Asterisk, // *
-    Slash, // /
-    Percent, // %
-
-    LeftParen, // (
-    RightParen, // )
+pub enum CommentStyle {
+    None,
+    InnerDoc,
+    OuterDoc,
 }
 
-impl TokenKind<'_> {
-    pub fn class(&self) -> TokenClass {
-        match self {
-            Self::IntLit { text: _ } => TokenClass::Lit,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Delimiter {
+    Paren,      // ( )
+    Brace,      // { }
+    Bracket,    // [ ]
+}
 
-            _ => TokenClass::Punc,
+impl fmt::Display for Delimiter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Delimiter::Paren => write!(f, "Paren"),
+            Delimiter::Brace => write!(f, "Brace"),
+            Delimiter::Bracket => write!(f, "Bracket"),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TokenClass {
-    Lit,
-    Keyword,
-    Ident,
-    Punc,
+pub enum WhitespaceKind {
+    // space
+    Space,
+    Tab,
+
+    // newline
+    LineFeed,
+    CarRet,
+    CarRetLineFeed,
+    FormFeed,
+    VerTab,
+
+    Other(char)
+}
+
+impl From<char> for WhitespaceKind {
+    fn from(c: char) -> Self {
+        use WhitespaceKind::*;
+
+        match c {
+            ' ' => Space,
+            '\t' => Tab,
+
+            '\n' => LineFeed,
+            '\r' => CarRet,
+            '\u{000B}' => VerTab,
+            '\u{000C}' => FormFeed,
+
+            _ => Other(c)
+        }
+    }
+}
+
+impl fmt::Display for WhitespaceKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WhitespaceKind::Space => write!(f, "' '"),
+            WhitespaceKind::Tab => write!(f, "\\t"),
+            WhitespaceKind::LineFeed => write!(f, "\\n"),
+            WhitespaceKind::CarRet => write!(f, "\\r"),
+            WhitespaceKind::CarRetLineFeed => write!(f, "\\r\\n"),
+            WhitespaceKind::FormFeed => write!(f, "\\f"),
+            WhitespaceKind::VerTab => write!(f, "\\v"),
+            WhitespaceKind::Other(c) => write!(f, "Other({c})"),
+        }
+    }
 }
 
 pub trait Lex {
-    fn lex(&mut self) -> Result<Token>;
+    fn lex(&mut self) -> Option<Token>;
 }
 
-use std::iter::Peekable;
+pub struct Lexer<I: Iterator<Item = char>> {
+    iter: I,
 
-pub struct Lexer<I> where I: Iterator<Item = char> {
-    cur: Peekable<I>,
-
-    pub(crate) names: HashSet<String>,
-    ident_buf: String,
+    buf: Vec<char>,
+    cur: usize,
 }
 
 impl<I> Lexer<I> where I: Iterator<Item = char> {
-    pub fn new(i: I) -> Self {
-        Self { 
-            cur: i.peekable(),
+    pub fn new(it: I) -> Self {
+        Self {
+            iter: it,
+
+            buf: Vec::with_capacity(64),
+            cur: 0,
+        }
+    }
+
+    fn read(&mut self, amount: usize) -> bool {
+        self.buf.reserve(amount);
+        self.read_full()
+    }
+
+    fn read_full(&mut self) -> bool {
+        let cap = self.buf.capacity();
+        let len = self.buf.len();
+        while let Some(c) = self.iter.next() {
+            if self.buf.len() >= cap {
+                break;
+            } else {
+                self.buf.push(c);
+            }
+        }
+
+        len != self.buf.len()
+    }
+
+    fn peek(&mut self) -> Option<char> {
+        self.peek_nth(0)
+    }
+
+    fn peek_nth(&mut self, n: usize) -> Option<char> {
+        let idx = self.cur + n;
+        if idx >= self.buf.len() {
+            self.read(idx - self.buf.len() + 1);
+        }
+
+        if idx < self.buf.len() {
+            Some(self.buf[idx])
+        } else {
+            None
+        }
+    }
+
+    fn advance(&mut self) -> Option<char> {
+        self.advance_by(1)
+    }
     
-            names: HashSet::new(),
-            ident_buf: String::with_capacity(32),
+    fn advance_by(&mut self, n: usize) -> Option<char> {
+        let cur = self.cur;
+
+        let dest = self.cur + n;
+        if dest >= self.buf.len() {
+            self.read(dest - self.buf.len() + 1);
+        }
+
+        if cur < self.buf.len() {
+            self.cur = dest;
+            Some(self.buf[cur])
+        } else {
+            None
+        }
+    }
+
+    fn calibrate_buf(&mut self) {
+        let end = self.buf.len();
+        if self.cur != 0 && self.cur * 2 >= end {
+            // The cursor is in the 2nd half of the buffer.
+
+            let start = min(self.cur, end);
+            self.buf.copy_within(start..end, 0);
+            self.buf.truncate(end - start);
+            self.read_full();
+            self.cur = 0;
         }
     }
 }
 
 impl<I> Lex for Lexer<I> where I: Iterator<Item = char> {
-    fn lex(&mut self) -> Result<Token> {
-        self.lex_token()
+    fn lex(&mut self) -> Option<Token> {
+        use TokenKind::*;
+
+        let start = self.cur;
+        if let Some(first_char) = self.advance() {
+            let kind = match first_char {
+                '/' => Slash,
+
+                '.' => Dot,
+                ',' => Comma,
+                ';' => Semicolon,
+                ':' => Colon,
+
+                '+' => Plus,
+                '-' => Minus,
+                '*' => Asterisk,
+                '%' => Percent,
+                
+                '(' => OpenDelim(Delimiter::Paren),
+                ')' => CloseDelim(Delimiter::Paren),
+                
+                '{' => OpenDelim(Delimiter::Brace),
+                '}' => CloseDelim(Delimiter::Brace),
+                
+                '[' => OpenDelim(Delimiter::Bracket),
+                ']' => CloseDelim(Delimiter::Bracket),
+
+                c if c.is_whitespace() => self.scan_whitespace(c),
+
+                _ => Unknown,
+            };
+
+            let end = self.cur;
+            self.calibrate_buf();
+            Some(Token::new(kind, (end - start) as u32))
+        } else {
+            return None;
+        }
     }
 }
 
 impl <I> Lexer<I> where I: Iterator<Item = char> {
-    fn lex_token(&mut self) -> Result<Token> {
-        // For the sake of convenience, allow using TokenKind variants directly.
-        use TokenKind::*;
+    fn scan_whitespace(&mut self, first: char) -> TokenKind {
+        assert!(first.is_whitespace());
 
-        loop {
-            self.skip_whitespace();
-
-            let res = if let Some(ch) = self.cur.peek().copied() {
-                match ch {
-                    '+' => {
-                        self.cur.next();
-                        Ok(Token { kind: Plus, len: 1 })
-                    },
-                    '-' => {
-                        self.cur.next();
-                        Ok(Token { kind: Minus, len: 1 })
-                    },
-                    '*' => {
-                        self.cur.next();
-                        Ok(Token { kind: Asterisk, len: 1 })
-                    },
-                    '/' => {
-                        self.cur.next();
-                        if let Some(ch) = self.cur.peek().copied() {
-                            if ch == '/' {
-                                self.skip_line_comment();
-                                continue;
-                            } else if ch == '*' {
-                                self.skip_block_comment(1);
-                                continue;
-                            }
-                        }
-
-                        Ok(Token { kind: Slash, len: 1 })
-                    }
-                    '%' => {
-                        self.cur.next();
-                        Ok(Token { kind: Percent, len: 1 })
-                    },
-
-                    '(' => { self.cur.next();
-                        Ok(Token { kind: LeftParen, len: 1 })
-                    },
-
-                    ')' => { self.cur.next();
-                        Ok(Token { kind: RightParen, len: 1 })
-                    },
-
-                    'a'..='z' | 'A'..='Z' => self.lex_ident(),
-
-                    _ => todo!(),
-                }
-            } else {
-                Err(LexError::from(LexErrorKind::EOF))
+        let mut kind = WhitespaceKind::from(first);
+        // Handling the case where whitespace is CRLF
+        if kind == WhitespaceKind::CarRet {
+            let Some(sec) = self.peek() else {
+                return TokenKind::Whitespace(WhitespaceKind::CarRet);
             };
 
-            return res;
-        }
-    }
-
-    fn skip_whitespace(&mut self) -> bool {
-        let mut any = false;
-
-        while let Some(ch) = self.cur.peek().copied() {
-            match ch {
-                ' ' | '\n' | '\r' | '\t' => self.cur.next(),
-                _ => break,
-            };
-
-            any = true;
+            if WhitespaceKind::LineFeed == WhitespaceKind::from(sec) {
+                kind = WhitespaceKind::CarRetLineFeed;
+                self.advance();
+            }
         }
 
-        any
-    }
-
-    fn skip_line_comment(&mut self) -> bool {
-        while let Some(ch) = self.cur.next() {
-            if ch == '\n' {
+        while let Some(c) = self.peek() {
+            if c != first
+                || (kind == WhitespaceKind::CarRetLineFeed // CRLF
+                    && self.peek_nth(1) != Some('\n'))
+                || (kind == WhitespaceKind::CarRet // CR but found CRLF
+                    && self.peek_nth(1) == Some('\n')) {
                 break;
-            }
-        }
-
-        true
-    }
-
-    fn skip_block_comment(&mut self, rec: u32) -> bool {
-        let mut first = true;
-        //let mut is_doc = false;
-
-        while let Some(ch0) = self.cur.next() {
-            if ch0 == '*' {
-                if let Some(ch1) = self.cur.next() {
-                    if ch1 == '/' {
-                        break;
-                    }
-                } else if first && rec == 1 {
-                    //is_doc = true;
-                } 
-            }
-            else if ch0 == '/' {
-                if let Some(ch1) = self.cur.next() {
-                    if ch1 == '*' {
-                        self.skip_block_comment(rec + 1);
-                    }
-                }
-            }
-
-            first = false;
-        }
-
-        true
-    }
-
-    fn lex_ident(&mut self) -> Result<Token> {
-        // For the sake of convenience, allow using TokenKind variants directly.
-        use TokenKind::*;
-
-        self.ident_buf.clear();
-        assert_eq!(0, self.ident_buf.len());
-
-        let push_char = |s: &mut Self, ch| {
-            s.ident_buf.push(ch);
-            s.cur.next();
-        };
-
-        loop {
-            if let Some(ch) = self.cur.peek().copied() {
-                match ch {
-                    'a'..='z' | 'A'..='Z' | '_' => push_char(self, ch),
-                    '0'..='9' if self.ident_buf.len() > 0 => push_char(self, ch),
-                    ' ' | '\t' | '\n' | '.' | ',' | ';' | '(' | ')' | '[' | ']' => break,
-                    _ if self.ident_buf.is_empty() && is_ident_start(ch) => push_char(self, ch),
-                    _ if !self.ident_buf.is_empty() && is_ident_body(ch) => push_char(self, ch),
-                    _ => break,
-                }
             } else {
-                return Err(LexError::from(LexErrorKind::EOF));
+                if kind == WhitespaceKind::CarRetLineFeed {
+                    self.advance_by(2);
+                } else {
+                    self.advance();
+                }
             }
         }
-        
-        if self.ident_buf.is_empty() {
-            Err(LexError::from(LexErrorKind::WrongClass))
-        } else {
-            self.names.insert(self.ident_buf.clone());
-            Ok(Token { kind: Ident { name: self.names.get(&self.ident_buf).unwrap() }, len: self.ident_buf.len() })
-        }
-    }
 
-}
-
-fn is_ident_start(ch: char) -> bool {
-    match ch {
-        'a'..='z' | 'A'..='Z' | '_' => true,
-        _ => false,
-    }
-}
-
-fn is_ident_body(ch: char) -> bool {
-    match ch {
-        'a'..='z' | 'A'..='Z' | '_' => true,
-        '0'..='9' => true,
-        _ => false,
+        TokenKind::Whitespace(kind)
     }
 }
