@@ -41,9 +41,15 @@ r"/* Second commend test */
 
 // identifiers and literals
 r"i = 34;
-r = 35.4;
-f = 32 + 3e12;
-l = r+35.4e10;"
+35.4;
+32 + 3e12;
+r+35.43;
+3.3.5.4;
+3_335_s;
+3_.3sx;
+3e10.3;
+3e.x;
+3.x;"
 ];
 
 #[test]

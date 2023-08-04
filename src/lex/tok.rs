@@ -399,14 +399,14 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         }
     }
 
-    fn scan_num_lit(&mut self, _first: char) -> TokenKind {
+    fn scan_num_lit(&mut self, first: char) -> TokenKind {
+        assert!(chars::is_digit(first));
+
         let start = self.cur - 1;
 
         let mut radix = false;
         let mut exponent = false;
 
-        let just_had_radix = false;
-        let just_had_exp = false;
         while let Some(c) = self.peek() {
             match c {
                 '0'..='9' => { 
@@ -415,25 +415,53 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
                 },
 
                 '.' if !exponent && !radix => {
-                    radix = true;
-                    self.advance();
+                    if let Some(next) = self.peek_nth(1) {
+                        match next {
+                            '0'..='9' => {
+                                radix = true;
+                                self.advance_by(2);
+                            },
+                            _ => break,
+                        }
+                    }
                 },
 
-                'e' | 'E' if !exponent && !just_had_radix => {
-                    exponent = true;
-                    self.advance();
-                }
+                'e' | 'E' if !exponent => {
+                    if let Some(next) = self.peek_nth(1) {
+                        match next {
+                            '0'..='9' => {
+                                exponent = true;
+                                self.advance_by(2);
+                            },
+                            _ => break,
+                        }
+                    }
+                },
 
-                '_' if !just_had_exp && !just_had_radix => {
+                '_' => {
                     self.advance();
-                }
+                },
 
                 _ => break,
             }
         }
 
         let real = radix || exponent;
-        let suffix_start = self.cur;
+        let suffix_start = self.cur - start;
+
+        // suffix check
+        if let Some(c) = self.peek() {
+            if chars::is_ident_start(c) {
+                self.advance();
+                while let Some(c) = self.peek() {
+                    if chars::is_ident_body(c) {
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
 
         let len = self.cur - start;
         let text = self.buf.iter()
