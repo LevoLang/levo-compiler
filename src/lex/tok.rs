@@ -45,20 +45,20 @@ pub enum TokenKind {
     Lit(Lit),
 
     // punctuation
-    Dot,        // .
-    Comma,      // ,
-    Semicolon,  // ;
-    Colon,      // :
+    Dot,       // .
+    Comma,     // ,
+    Semicolon, // ;
+    Colon,     // :
 
     // operators
-    Plus,       // +
-    Minus,      // -
-    Asterisk,   // *
-    Slash,      // /
-    Percent,    // %
+    Plus,     // +
+    Minus,    // -
+    Asterisk, // *
+    Slash,    // /
+    Percent,  // %
 
     // assignments
-    Equals,     // =
+    Equals, // =
 
     // delimiters
     OpenDelim(Delimiter),
@@ -70,12 +70,12 @@ pub enum TokenKind {
         kind: CommentKind,
         style: CommentStyle,
         content: String,
-        terminated: bool
+        terminated: bool,
     },
 
     // miscellaneous
     Bad {
-        message: &'static str
+        message: &'static str,
     },
 }
 
@@ -124,10 +124,17 @@ impl fmt::Display for TokenKind {
             CloseDelim(kind) => write!(f, "CloseDelim({kind})"),
 
             Whitespace(kind) => write!(f, "Whitespace({kind})"),
-            Comment { kind, style, content, terminated}
-                 => write!(f, "Comment: {{ kind: {kind}, style: {style}, message: \"{}\", \
+            Comment {
+                kind,
+                style,
+                content,
+                terminated,
+            } => write!(
+                f,
+                "Comment: {{ kind: {kind}, style: {style}, message: \"{}\", \
                                 terminated: {terminated} }}",
-                                preview_content(content.trim())),
+                preview_content(content.trim())
+            ),
 
             Bad { message } => write!(f, "Bad: {{ message: \"{message} \" }}"),
         }
@@ -154,9 +161,7 @@ pub struct Ident {
 
 impl Ident {
     pub fn new(name: String) -> Self {
-        Self {
-            name: name
-        }
+        Self { name: name }
     }
 
     pub fn name(&self) -> &String {
@@ -180,10 +185,7 @@ pub struct Lit {
 }
 
 impl Lit {
-    pub fn new(kind: LitKind,
-               text: String,
-               prefix_end: u32,
-               suffix_start: u32) -> Self {
+    pub fn new(kind: LitKind, text: String, prefix_end: u32, suffix_start: u32) -> Self {
         Self {
             kind: kind,
             text: text,
@@ -207,7 +209,7 @@ impl Lit {
 
 impl fmt::Display for Lit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Lit { kind, text , .. } = self;
+        let Lit { kind, text, .. } = self;
         write!(f, "Lit: {{ kind:: {kind}, text: \"{text}\" }}")
     }
 }
@@ -261,9 +263,9 @@ impl fmt::Display for CommentStyle {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Delimiter {
-    Paren,      // ( )
-    Brace,      // { }
-    Bracket,    // [ ]
+    Paren,   // ( )
+    Brace,   // { }
+    Bracket, // [ ]
 }
 
 impl fmt::Display for Delimiter {
@@ -289,7 +291,7 @@ pub enum WhitespaceKind {
     FormFeed,
     VerTab,
 
-    Other(char)
+    Other(char),
 }
 
 impl From<char> for WhitespaceKind {
@@ -305,7 +307,7 @@ impl From<char> for WhitespaceKind {
             '\u{000B}' => VerTab,
             '\u{000C}' => FormFeed,
 
-            _ => Other(c)
+            _ => Other(c),
         }
     }
 }
@@ -325,7 +327,8 @@ impl fmt::Display for WhitespaceKind {
     }
 }
 
-impl <I> Lexer<I> where I: Iterator<Item = char> {
+impl<I: Iterator<Item = char>> Lexer<I>
+{
     pub(super) fn lex_token(&mut self) -> Option<Token> {
         use TokenKind::*;
 
@@ -340,12 +343,12 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
                     Some('/') => {
                         self.advance();
                         self.scan_comment(CommentStyle::Line)
-                    },
+                    }
                     Some('*') => {
                         self.advance();
-                        self.scan_comment(CommentStyle::Block) 
-                    },
-                    
+                        self.scan_comment(CommentStyle::Block)
+                    }
+
                     _ => Slash,
                 },
 
@@ -361,13 +364,13 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
                 '%' => Percent,
 
                 '=' => Equals,
-                
+
                 '(' => OpenDelim(Delimiter::Paren),
                 ')' => CloseDelim(Delimiter::Paren),
-                
+
                 '{' => OpenDelim(Delimiter::Brace),
                 '}' => CloseDelim(Delimiter::Brace),
-                
+
                 '[' => OpenDelim(Delimiter::Bracket),
                 ']' => CloseDelim(Delimiter::Bracket),
 
@@ -387,7 +390,6 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         }
     }
 
-
     fn scan_ident(&mut self, first: char) -> TokenKind {
         assert!(chars::is_ident_start(first));
 
@@ -404,14 +406,7 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         if len == 1 && first == '_' {
             TokenKind::Underscore
         } else {
-            TokenKind::Ident(
-                Ident::new(
-                self.buf.iter()
-                        .skip(start)
-                        .take(len)
-                        .collect()
-                )
-            )
+            TokenKind::Ident(Ident::new(self.buf.iter().skip(start).take(len).collect()))
         }
     }
 
@@ -425,10 +420,10 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
 
         while let Some(c) = self.peek() {
             match c {
-                '0'..='9' => { 
+                '0'..='9' => {
                     self.advance();
                     continue;
-                },
+                }
 
                 '.' if !exponent && !radix => {
                     if let Some(next) = self.peek_nth(1) {
@@ -436,11 +431,11 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
                             '0'..='9' => {
                                 radix = true;
                                 self.advance_by(2);
-                            },
+                            }
                             _ => break,
                         }
                     }
-                },
+                }
 
                 'e' | 'E' if !exponent => {
                     if let Some(next) = self.peek_nth(1) {
@@ -448,15 +443,15 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
                             '0'..='9' => {
                                 exponent = true;
                                 self.advance_by(2);
-                            },
+                            }
                             _ => break,
                         }
                     }
-                },
+                }
 
                 '_' => {
                     self.advance();
-                },
+                }
 
                 _ => break,
             }
@@ -480,24 +475,11 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         }
 
         let len = self.cur - start;
-        let text = self.buf.iter()
-                    .skip(start)
-                    .take(len)
-                    .collect();
+        let text = self.buf.iter().skip(start).take(len).collect();
 
-        let kind = if real {
-            LitKind::Real
-        } else {
-            LitKind::Int
-        };
+        let kind = if real { LitKind::Real } else { LitKind::Int };
 
-        TokenKind::Lit(
-            Lit::new(
-                kind,
-                text,
-                0,
-                suffix_start as u32)
-        )
+        TokenKind::Lit(Lit::new(kind, text, 0, suffix_start as u32))
     }
 
     fn scan_whitespace(&mut self, first: char) -> TokenKind {
@@ -521,7 +503,8 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
                 || (kind == WhitespaceKind::CarRetLineFeed // CRLF
                     && self.peek_nth(1) != Some('\n'))
                 || (kind == WhitespaceKind::CarRet // CR but found CRLF
-                    && self.peek_nth(1) == Some('\n')) {
+                    && self.peek_nth(1) == Some('\n'))
+            {
                 break;
             } else {
                 if kind == WhitespaceKind::CarRetLineFeed {
@@ -539,15 +522,14 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         // This function assumes that we already have entered the comment area
 
         // Guard for empty block comments.
-        if style == CommentStyle::Block
-            && self.peek() == Some('*')
-            && self.peek_nth(1) == Some('/') {
+        if style == CommentStyle::Block && self.peek() == Some('*') && self.peek_nth(1) == Some('/')
+        {
             return TokenKind::Comment {
                 kind: CommentKind::Normal,
                 style: CommentStyle::Block,
                 content: String::new(),
-                terminated: true
-            }
+                terminated: true,
+            };
         }
 
         let kind = match self.peek() {
@@ -574,7 +556,7 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
             } else if style == CommentStyle::Block && c == '*' && self.peek() == Some('/') {
                 self.advance();
                 nest -= 1;
-                
+
                 if nest == 0 {
                     terminated = true;
                     break;
@@ -588,24 +570,22 @@ impl <I> Lexer<I> where I: Iterator<Item = char> {
         let len = if !terminated {
             self.cur - start
         } else if style == CommentStyle::Line {
-            // Line comments include their end-of-line characters in their content, so if a line 
+            // Line comments include their end-of-line characters in their content, so if a line
             // comment ends with CRLF, it should include the line feed at the end as well.
             if last_char == '\r' && self.peek() == Some('\n') {
                 self.advance();
             }
 
             self.cur - start
-        } else { // style == CommentStyle::Block
+        } else {
+            // style == CommentStyle::Block
             self.cur - start - 2
         };
 
-        TokenKind::Comment{
+        TokenKind::Comment {
             kind: kind,
             style: style,
-            content: self.buf.iter()
-                                .skip(start)
-                                .take(len)
-                                .collect(),
+            content: self.buf.iter().skip(start).take(len).collect(),
             terminated: terminated,
         }
     }

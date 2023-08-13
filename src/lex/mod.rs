@@ -14,7 +14,7 @@ pub struct Lexer<I: Iterator<Item = char>> {
     cur: usize,
 }
 
-impl<I> Lexer<I> where I: Iterator<Item = char> {
+impl<I: Iterator<Item = char>> Lexer<I> {
     pub fn new(iter: I) -> Self {
         Self {
             iter: iter,
@@ -64,7 +64,7 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
     fn advance(&mut self) -> Option<char> {
         self.advance_by(1)
     }
-    
+
     fn advance_by(&mut self, n: usize) -> Option<char> {
         let cur = self.cur;
 
@@ -83,8 +83,7 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
 
     fn calibrate_buf(&mut self) {
         let cap = self.buf.capacity();
-        if self.buf.len() == self.buf.capacity()
-            && (self.cur != 0 && self.cur * 2 >= cap) {
+        if self.buf.len() == self.buf.capacity() && (self.cur != 0 && self.cur * 2 >= cap) {
             // The cursor is in the 2nd half of the buffer.
             let end = self.buf.len();
             let start = min(self.cur, end);
@@ -98,13 +97,13 @@ impl<I> Lexer<I> where I: Iterator<Item = char> {
     }
 }
 
-impl<I> Lex for Lexer<I> where I: Iterator<Item = char> {
+impl<I: Iterator<Item = char>> Lex for Lexer<I> {
     fn lex(&mut self) -> Option<Token> {
         self.lex_token()
     }
 }
 
-impl<I> IntoIterator for Lexer<I> where I: Iterator<Item = char> {
+impl<I: Iterator<Item = char>> IntoIterator for Lexer<I> {
     type Item = Token;
 
     type IntoIter = TokenIter<Lexer<I>>;
@@ -115,14 +114,12 @@ impl<I> IntoIterator for Lexer<I> where I: Iterator<Item = char> {
 }
 
 pub struct TokenIter<L: Lex> {
-    lexer: L
+    lexer: L,
 }
 
-impl<L> TokenIter<L> where L: Lex {
+impl<L: Lex> TokenIter<L> {
     pub(self) fn new(lexer: L) -> Self {
-        Self {
-            lexer: lexer
-        }
+        Self { lexer: lexer }
     }
 
     pub fn skip_trivia(self) -> SkipTrivia<Self> {
@@ -130,7 +127,7 @@ impl<L> TokenIter<L> where L: Lex {
     }
 }
 
-impl<L> Iterator for TokenIter<L> where L: Lex {
+impl<L: Lex> Iterator for TokenIter<L> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
@@ -142,13 +139,13 @@ pub struct SkipTrivia<I: Iterator<Item = Token>> {
     iter: I,
 }
 
-impl<I> SkipTrivia<I> where I: Iterator<Item = Token> {
+impl<I: Iterator<Item = Token>> SkipTrivia<I> {
     pub(self) fn new(iter: I) -> Self {
         Self { iter: iter }
     }
 }
 
-impl<I> Iterator for SkipTrivia<I> where I: Iterator<Item = Token> {
+impl<I: Iterator<Item = Token>> Iterator for SkipTrivia<I> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
@@ -156,11 +153,11 @@ impl<I> Iterator for SkipTrivia<I> where I: Iterator<Item = Token> {
             return match self.iter.next() {
                 Some(token) => {
                     if token.is_trivia() {
-                        continue
+                        continue;
                     } else {
                         Some(token)
                     }
-                },
+                }
                 None => None,
             };
         }
