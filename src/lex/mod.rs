@@ -1,103 +1,64 @@
-use std::cmp::min;
+use std::iter::Peekable;
+use std::marker::PhantomData;
 
 mod tok;
-pub use tok::*;
+use tok::*;
+
+pub trait Tok {
+    fn len(&self) -> u32;
+
+    fn is_trivia(&self) -> bool;
+}
 
 pub trait Lex {
-    fn lex(&mut self) -> Option<Token>;
+    type Token: Tok;
+
+    fn lex(&mut self) -> Option<Self::Token>;
 }
 
 pub struct Lexer<I: Iterator<Item = char>> {
-    iter: I,
-
-    buf: Vec<char>,
+    iter: Peekable<I>,
     cur: usize,
+    shelf: Option<char>,
 }
 
 impl<I: Iterator<Item = char>> Lexer<I> {
     pub fn new(iter: I) -> Self {
         Self {
-            iter: iter,
-
-            buf: Vec::with_capacity(64),
+            iter: iter.peekable(),
             cur: 0,
-        }
-    }
-
-    fn read(&mut self, amount: usize) -> bool {
-        self.buf.reserve(amount);
-        self.read_full()
-    }
-
-    fn read_full(&mut self) -> bool {
-        let cap = self.buf.capacity();
-        let len = self.buf.len();
-        while let Some(c) = self.iter.next() {
-            self.buf.push(c);
-            if self.buf.len() >= cap {
-                break;
-            }
-        }
-
-        len != self.buf.len()
-    }
-
-    #[inline]
-    fn peek(&mut self) -> Option<char> {
-        self.peek_nth(0)
-    }
-
-    fn peek_nth(&mut self, n: usize) -> Option<char> {
-        let idx = self.cur + n;
-        if idx >= self.buf.len() {
-            self.read(idx - self.buf.len() + 1);
-        }
-
-        if idx < self.buf.len() {
-            Some(self.buf[idx])
-        } else {
-            None
+            shelf: None,
         }
     }
 
     #[inline]
     fn advance(&mut self) -> Option<char> {
-        self.advance_by(1)
-    }
+        self.cur += 1;
 
-    fn advance_by(&mut self, n: usize) -> Option<char> {
-        let cur = self.cur;
-
-        let dest = self.cur + n;
-        if dest >= self.buf.len() {
-            self.read(dest - self.buf.len() + 1);
+        match self.shelf.take() {
+            None => self.iter.next(),
+            v => v,
         }
-
-        if cur < self.buf.len() {
-            self.cur = dest;
-            Some(self.buf[cur])
-        } else {
-            None
+    }
+    
+    #[inline]
+    fn peek(&mut self) -> Option<char> {
+        match self.shelf {
+            None => self.iter.peek().copied(),
+            v => v,
         }
     }
 
-    fn calibrate_buf(&mut self) {
-        let cap = self.buf.capacity();
-        if self.buf.len() == self.buf.capacity() && (self.cur != 0 && self.cur * 2 >= cap) {
-            // The cursor is in the 2nd half of the buffer.
-            let end = self.buf.len();
-            let start = min(self.cur, end);
-
-            self.buf.copy_within(start..end, 0);
-            self.buf.truncate(end - start);
-            self.cur = 0;
-
-            self.read_full();
-        }
+    #[inline]
+    fn shelf(&mut self, c: char) -> Option<char> {
+        self.cur -= 1;
+        self.shelf.replace(c)
     }
 }
 
 impl<I: Iterator<Item = char>> Lex for Lexer<I> {
+    type Token = Token;
+
     fn lex(&mut self) -> Option<Token> {
         self.lex_token()
     }
@@ -122,33 +83,37 @@ impl<L: Lex> TokenIter<L> {
         Self { lexer: lexer }
     }
 
-    pub fn skip_trivia(self) -> SkipTrivia<Self> {
+    pub fn skip_trivia(self) -> SkipTrivia<L, Self> {
         SkipTrivia::new(self)
     }
 }
 
 impl<L: Lex> Iterator for TokenIter<L> {
-    type Item = Token;
+    type Item = L::Token;
 
-    fn next(&mut self) -> Option<Token> {
+    fn next(&mut self) -> Option<L::Token> {
         self.lexer.lex()
     }
 }
 
-pub struct SkipTrivia<I: Iterator<Item = Token>> {
+pub struct SkipTrivia<L: Lex, I: Iterator<Item = L::Token>> {
     iter: I,
+    _phantom: PhantomData<L>,
 }
 
-impl<I: Iterator<Item = Token>> SkipTrivia<I> {
+impl<L: Lex, I: Iterator<Item = L::Token>> SkipTrivia<L, I> {
     pub(self) fn new(iter: I) -> Self {
-        Self { iter: iter }
+        Self {
+            iter: iter,
+            _phantom: PhantomData::default(),
+        }
     }
 }
 
-impl<I: Iterator<Item = Token>> Iterator for SkipTrivia<I> {
-    type Item = Token;
+impl<L: Lex, I: Iterator<Item = L::Token>> Iterator for SkipTrivia<L, I> {
+    type Item = L::Token;
 
-    fn next(&mut self) -> Option<Token> {
+    fn next(&mut self) -> Option<L::Token> {
         loop {
             return match self.iter.next() {
                 Some(token) => {

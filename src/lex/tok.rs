@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::chars;
 
-use super::Lexer;
+use super::{Lexer, Tok};
 
 pub struct Token {
     kind: TokenKind,
@@ -17,12 +17,25 @@ impl Token {
         }
     }
 
+    pub fn dummy() -> Self {
+        Self {
+            kind: TokenKind::Unknown,
+            len: 0,
+        }
+    }
+
     pub fn kind(&self) -> &TokenKind {
         &self.kind
     }
+}
 
-    pub fn len(&self) -> u32 {
+impl Tok for Token {
+    fn len(&self) -> u32 {
         self.len
+    }
+
+    fn is_trivia(&self) -> bool {
+        self.kind().is_trivia()
     }
 }
 
@@ -38,11 +51,14 @@ pub enum TokenKind {
     Unknown,
 
     // identifier
-    Ident(Ident),
+    Ident,
     Underscore, // _
 
     // literal
-    Lit(Lit),
+    Lit {
+        kind: LitKind,
+        suffix_start: u32,
+    },
 
     // punctuation
     Dot,       // .
@@ -69,13 +85,7 @@ pub enum TokenKind {
     Comment {
         kind: CommentKind,
         style: CommentStyle,
-        content: String,
         terminated: bool,
-    },
-
-    // miscellaneous
-    Bad {
-        message: &'static str,
     },
 }
 
@@ -89,12 +99,6 @@ impl TokenKind {
     }
 }
 
-impl Token {
-    pub fn is_trivia(&self) -> bool {
-        self.kind.is_trivia()
-    }
-}
-
 impl fmt::Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use TokenKind::*;
@@ -102,10 +106,12 @@ impl fmt::Display for TokenKind {
         match self {
             Unknown => write!(f, "Unknown"),
 
-            Ident(ident) => write!(f, "{ident}"),
+            Ident => write!(f, "Ident"),
             Underscore => write!(f, "Underscore"),
 
-            Lit(lit) => write!(f, "{lit}"),
+            Lit { kind, suffix_start } => {
+                write!(f, "Lit: {{ kind: {kind}, suffix_start: {suffix_start} }}")
+            }
 
             Dot => write!(f, "Dot"),
             Comma => write!(f, "Comma"),
@@ -127,90 +133,12 @@ impl fmt::Display for TokenKind {
             Comment {
                 kind,
                 style,
-                content,
                 terminated,
             } => write!(
                 f,
-                "Comment: {{ kind: {kind}, style: {style}, message: \"{}\", \
-                                terminated: {terminated} }}",
-                preview_content(content.trim())
+                "Comment: {{ kind: {kind}, style: {style}, terminated: {terminated} }}"
             ),
-
-            Bad { message } => write!(f, "Bad: {{ message: \"{message} \" }}"),
         }
-    }
-}
-
-fn preview_content(cont: &str) -> String {
-    const MAX_CONTENT_LEN: usize = 40;
-
-    if cont.len() < MAX_CONTENT_LEN {
-        cont.to_owned()
-    } else {
-        cont.chars()
-            .take(MAX_CONTENT_LEN - 3)
-            .chain("...".chars())
-            .collect()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ident {
-    pub name: String,
-}
-
-impl Ident {
-    pub fn new(name: String) -> Self {
-        Self { name: name }
-    }
-
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-}
-
-impl fmt::Display for Ident {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Ident { name } = self;
-        write!(f, "Ident: {{ name: \"{name}\" }}")
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Lit {
-    kind: LitKind,
-    text: String,
-    prefix_end: u32,
-    suffix_start: u32,
-}
-
-impl Lit {
-    pub fn new(kind: LitKind, text: String, prefix_end: u32, suffix_start: u32) -> Self {
-        Self {
-            kind: kind,
-            text: text,
-            prefix_end: prefix_end,
-            suffix_start: suffix_start,
-        }
-    }
-
-    pub fn kind(&self) -> LitKind {
-        self.kind
-    }
-
-    pub fn text(&self) -> &String {
-        &self.text
-    }
-
-    pub fn suffix_start(&self) -> u32 {
-        self.suffix_start
-    }
-}
-
-impl fmt::Display for Lit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Lit { kind, text, .. } = self;
-        write!(f, "Lit: {{ kind:: {kind}, text: \"{text}\" }}")
     }
 }
 
@@ -280,61 +208,137 @@ impl fmt::Display for Delimiter {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WhitespaceKind {
-    // space
-    Space,
-    Tab,
+    Unknown,
 
-    // newline
-    LineFeed,
-    CarRet,
-    CarRetLineFeed,
-    FormFeed,
-    VerTab,
+    // single character
+    Tab,             /* \u{0009} character tabulation */
+    LineFeed,        /* \u{000A} line feed */
+    VerTab,          /* \u{000B} line tabulation */
+    FormFeed,        /* \u{000C} form feed */
+    CarRet,          /* \u{000D} carriage return */
+    Space,           /* \u{0020} space */
+    NextLine,        /* \u{0085} next line */
+    SpaceNoBrk,      /* \u{00A0} no-break space */
+    SpaceOgham,      /* \u{1680} ogham space mark */
+    EnQuad,          /* \u{2000} en quad */
+    EmQuad,          /* \u{2001} em quad */
+    EnSpace,         /* \u{2002} en space */
+    EmSpace,         /* \u{2003} em space */
+    ThirdPerEmSpace, /* \u{2004} three-per-em space */
+    FourPerEmSpace,  /* \u{2005} four-per-em space */
+    SixPerEmSpace,   /* \u{2006} six-per-em space */
+    FigureSpace,     /* \u{2007} figure space */
+    PuncSpace,       /* \u{2008} punctuation space */
+    ThinSpace,       /* \u{2009} thin space */
+    HairSpace,       /* \u{200A} hair space */
+    LineSep,         /* \u{2028} line separator */
+    ParSep,          /* \u{2029} paragraph separator */
+    NarrowSpace,     /* \u{202F} narrow no-break space */
+    MathSpace,       /* \u{205F} medium mathematical space */
+    IdeoSpace,       /* \u{3000} ideographic space */
 
-    Other(char),
+    // compound
+    CarRetLineFeed, /* carriage return + line feed */
+}
+
+impl WhitespaceKind {
+    pub fn as_char(&self) -> Option<char> {
+        Some(match self {
+            WhitespaceKind::Tab => '\t',
+            WhitespaceKind::LineFeed => '\n',
+            WhitespaceKind::VerTab => '\u{000B}',
+            WhitespaceKind::FormFeed => '\u{000C}',
+            WhitespaceKind::CarRet => '\r',
+            WhitespaceKind::Space => ' ',
+            WhitespaceKind::NextLine => '\u{0085}',
+            WhitespaceKind::SpaceNoBrk => '\u{00A0}',
+            WhitespaceKind::SpaceOgham => '\u{1680}',
+            WhitespaceKind::EnQuad => '\u{2000}',
+            WhitespaceKind::EmQuad => '\u{2001}',
+            WhitespaceKind::EnSpace => '\u{2002}',
+            WhitespaceKind::EmSpace => '\u{2003}',
+            WhitespaceKind::Unknown => '\u{2004}',
+            WhitespaceKind::ThirdPerEmSpace => '\u{2004}',
+            WhitespaceKind::FourPerEmSpace => '\u{2005}',
+            WhitespaceKind::SixPerEmSpace => '\u{2006}',
+            WhitespaceKind::FigureSpace => '\u{2007}',
+            WhitespaceKind::PuncSpace => '\u{2008}',
+            WhitespaceKind::ThinSpace => '\u{2009}',
+            WhitespaceKind::HairSpace => '\u{200A}',
+            WhitespaceKind::LineSep => '\u{2028}',
+            WhitespaceKind::ParSep => '\u{2029}',
+            WhitespaceKind::NarrowSpace => '\u{202F}',
+            WhitespaceKind::MathSpace => '\u{205F}',
+            WhitespaceKind::IdeoSpace => '\u{3000}',
+            WhitespaceKind::CarRetLineFeed => {
+                return None;
+            }
+        })
+    }
 }
 
 impl From<char> for WhitespaceKind {
     fn from(c: char) -> Self {
-        use WhitespaceKind::*;
-
         match c {
-            ' ' => Space,
-            '\t' => Tab,
-
-            '\n' => LineFeed,
-            '\r' => CarRet,
-            '\u{000B}' => VerTab,
-            '\u{000C}' => FormFeed,
-
-            _ => Other(c),
+            ' ' => Self::Space,
+            '\r' => Self::CarRet,
+            '\n' => Self::LineFeed,
+            '\t' => Self::Tab,
+            '\u{000B}' => Self::VerTab,
+            '\u{000C}' => Self::FormFeed,
+            '\u{0085}' => Self::NextLine,
+            '\u{00A0}' => Self::SpaceNoBrk,
+            '\u{1680}' => Self::SpaceOgham,
+            '\u{2000}' => Self::EnQuad,
+            '\u{2001}' => Self::EmQuad,
+            '\u{2002}' => Self::EnSpace,
+            '\u{2003}' => Self::EmSpace,
+            '\u{2004}' => Self::ThirdPerEmSpace,
+            '\u{2005}' => Self::FourPerEmSpace,
+            '\u{2006}' => Self::SixPerEmSpace,
+            '\u{2007}' => Self::FigureSpace,
+            '\u{2008}' => Self::PuncSpace,
+            '\u{2009}' => Self::ThinSpace,
+            '\u{200A}' => Self::HairSpace,
+            '\u{2028}' => Self::LineSep,
+            '\u{2029}' => Self::ParSep,
+            '\u{202F}' => Self::NarrowSpace,
+            '\u{205F}' => Self::MathSpace,
+            '\u{3000}' => Self::IdeoSpace,
+            _ => Self::Unknown,
         }
+    }
+}
+
+impl Into<Option<char>> for WhitespaceKind {
+    fn into(self) -> Option<char> {
+        self.as_char()
     }
 }
 
 impl fmt::Display for WhitespaceKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            WhitespaceKind::Space => write!(f, "' '"),
             WhitespaceKind::Tab => write!(f, "\\t"),
             WhitespaceKind::LineFeed => write!(f, "\\n"),
-            WhitespaceKind::CarRet => write!(f, "\\r"),
-            WhitespaceKind::CarRetLineFeed => write!(f, "\\r\\n"),
-            WhitespaceKind::FormFeed => write!(f, "\\f"),
             WhitespaceKind::VerTab => write!(f, "\\v"),
-            WhitespaceKind::Other(c) => write!(f, "Other({c})"),
+            WhitespaceKind::FormFeed => write!(f, "\\f"),
+            WhitespaceKind::CarRet => write!(f, "\\r"),
+            WhitespaceKind::Space => write!(f, "' '"),
+
+            WhitespaceKind::CarRetLineFeed => write!(f, "\\r\\n"),
+            c => write!(f, "{}", c.as_char().unwrap().escape_unicode()),
         }
     }
 }
 
-impl<I: Iterator<Item = char>> Lexer<I>
-{
+impl<I: Iterator<Item = char>> Lexer<I> {
     pub(super) fn lex_token(&mut self) -> Option<Token> {
         use TokenKind::*;
 
         let start = self.cur;
-        if let Some(first_char) = self.advance() {
-            let kind = match first_char {
+        if let Some(c) = self.advance() {
+            let kind = match c {
                 // whitespace
                 c if chars::is_whitespace(c) => self.scan_whitespace(c),
 
@@ -348,7 +352,6 @@ impl<I: Iterator<Item = char>> Lexer<I>
                         self.advance();
                         self.scan_comment(CommentStyle::Block)
                     }
-
                     _ => Slash,
                 },
 
@@ -374,7 +377,7 @@ impl<I: Iterator<Item = char>> Lexer<I>
                 '[' => OpenDelim(Delimiter::Bracket),
                 ']' => CloseDelim(Delimiter::Bracket),
 
-                c @ '0'..='9' => self.scan_num_lit(c),
+                '0'..='9' => self.scan_num_lit(c),
 
                 // ident or underscore
                 c if chars::is_ident_start(c) => self.scan_ident(c),
@@ -383,7 +386,6 @@ impl<I: Iterator<Item = char>> Lexer<I>
             };
 
             let end = self.cur;
-            self.calibrate_buf();
             Some(Token::new(kind, (end - start) as u32))
         } else {
             return None;
@@ -406,7 +408,7 @@ impl<I: Iterator<Item = char>> Lexer<I>
         if len == 1 && first == '_' {
             TokenKind::Underscore
         } else {
-            TokenKind::Ident(Ident::new(self.buf.iter().skip(start).take(len).collect()))
+            TokenKind::Ident
         }
     }
 
@@ -426,25 +428,33 @@ impl<I: Iterator<Item = char>> Lexer<I>
                 }
 
                 '.' if !exponent && !radix => {
-                    if let Some(next) = self.peek_nth(1) {
+                    self.advance();
+                    if let Some(next) = self.peek() {
                         match next {
                             '0'..='9' => {
                                 radix = true;
-                                self.advance_by(2);
+                                self.advance();
                             }
-                            _ => break,
+                            _ => {
+                                self.shelf('.');
+                                break;
+                            }
                         }
                     }
                 }
 
-                'e' | 'E' if !exponent => {
-                    if let Some(next) = self.peek_nth(1) {
+                c @ ('e' | 'E') if !exponent => {
+                    self.advance();
+                    if let Some(next) = self.peek() {
                         match next {
                             '0'..='9' => {
                                 exponent = true;
-                                self.advance_by(2);
+                                self.advance();
                             }
-                            _ => break,
+                            _ => {
+                                self.shelf(c);
+                                break;
+                            }
                         }
                     }
                 }
@@ -457,8 +467,7 @@ impl<I: Iterator<Item = char>> Lexer<I>
             }
         }
 
-        let real = radix || exponent;
-        let suffix_start = self.cur - start;
+        let suffix_start: u32 = (self.cur - start) as u32;
 
         // suffix check
         if let Some(c) = self.peek() {
@@ -474,12 +483,13 @@ impl<I: Iterator<Item = char>> Lexer<I>
             }
         }
 
-        let len = self.cur - start;
-        let text = self.buf.iter().skip(start).take(len).collect();
+        let kind = if radix || exponent {
+            LitKind::Real
+        } else {
+            LitKind::Int
+        };
 
-        let kind = if real { LitKind::Real } else { LitKind::Int };
-
-        TokenKind::Lit(Lit::new(kind, text, 0, suffix_start as u32))
+        TokenKind::Lit { kind, suffix_start }
     }
 
     fn scan_whitespace(&mut self, first: char) -> TokenKind {
@@ -492,26 +502,35 @@ impl<I: Iterator<Item = char>> Lexer<I>
                 return TokenKind::Whitespace(WhitespaceKind::CarRet);
             };
 
-            if WhitespaceKind::LineFeed == WhitespaceKind::from(sec) {
+            if WhitespaceKind::from(sec) == WhitespaceKind::LineFeed {
                 kind = WhitespaceKind::CarRetLineFeed;
                 self.advance();
             }
         }
 
         while let Some(c) = self.peek() {
-            if c != first
-                || (kind == WhitespaceKind::CarRetLineFeed // CRLF
-                    && self.peek_nth(1) != Some('\n'))
-                || (kind == WhitespaceKind::CarRet // CR but found CRLF
-                    && self.peek_nth(1) == Some('\n'))
-            {
-                break;
-            } else {
+            if c == first {
+                self.advance();
                 if kind == WhitespaceKind::CarRetLineFeed {
-                    self.advance_by(2);
-                } else {
-                    self.advance();
+                    match self.peek() {
+                        Some(sec) if WhitespaceKind::from(sec) == WhitespaceKind::LineFeed => {
+                            self.advance();
+                        }
+                        _ => {
+                            self.shelf(c);
+                            break;
+                        }
+                    }
+                } else if kind == WhitespaceKind::CarRet {
+                    if let Some(sec) = self.peek() {
+                        if WhitespaceKind::from(sec) == WhitespaceKind::LineFeed {
+                            self.shelf(c);
+                            break;
+                        }
+                    }
                 }
+            } else {
+                break;
             }
         }
 
@@ -521,17 +540,6 @@ impl<I: Iterator<Item = char>> Lexer<I>
     fn scan_comment(&mut self, style: CommentStyle) -> TokenKind {
         // This function assumes that we already have entered the comment area
 
-        // Guard for empty block comments.
-        if style == CommentStyle::Block && self.peek() == Some('*') && self.peek_nth(1) == Some('/')
-        {
-            return TokenKind::Comment {
-                kind: CommentKind::Normal,
-                style: CommentStyle::Block,
-                content: String::new(),
-                terminated: true,
-            };
-        }
-
         let kind = match self.peek() {
             Some('/') if style == CommentStyle::Line => CommentKind::Doc,
             Some('*') if style == CommentStyle::Block => CommentKind::Doc,
@@ -539,19 +547,28 @@ impl<I: Iterator<Item = char>> Lexer<I>
             _ => CommentKind::Normal,
         };
 
+        // Consume the designator character.
         if kind != CommentKind::Normal {
             self.advance();
         }
 
-        let start = self.cur;
+        // Empty comment block.
+        if kind == CommentKind::Doc && style == CommentStyle::Block && self.peek() == Some('/') {
+            self.advance();
+            return TokenKind::Comment {
+                kind: CommentKind::Normal,
+                style: CommentStyle::Block,
+                terminated: true,
+            };
+        }
 
-        let mut last_char: char = char::default();
+        let mut last_char = None;
         let mut terminated = false;
         let mut nest: u32 = 1;
         while let Some(c) = self.advance() {
             if style == CommentStyle::Line && chars::is_newline(c) {
                 terminated = true;
-                last_char = c;
+                last_char = Some(c);
                 break;
             } else if style == CommentStyle::Block && c == '*' && self.peek() == Some('/') {
                 self.advance();
@@ -567,25 +584,13 @@ impl<I: Iterator<Item = char>> Lexer<I>
             }
         }
 
-        let len = if !terminated {
-            self.cur - start
-        } else if style == CommentStyle::Line {
-            // Line comments include their end-of-line characters in their content, so if a line
-            // comment ends with CRLF, it should include the line feed at the end as well.
-            if last_char == '\r' && self.peek() == Some('\n') {
-                self.advance();
-            }
-
-            self.cur - start
-        } else {
-            // style == CommentStyle::Block
-            self.cur - start - 2
-        };
+        if style == CommentStyle::Line && last_char == Some('\r') && self.peek() == Some('\n') {
+            self.advance();
+        }
 
         TokenKind::Comment {
             kind: kind,
             style: style,
-            content: self.buf.iter().skip(start).take(len).collect(),
             terminated: terminated,
         }
     }
