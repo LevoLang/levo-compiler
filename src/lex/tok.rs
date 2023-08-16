@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::chars;
+use crate::chars::{self, Delimiter, Whitespace};
 
 use super::{Lexer, Tok};
 
@@ -81,7 +81,7 @@ pub enum TokenKind {
     CloseDelim(Delimiter),
 
     // trivia
-    Whitespace(WhitespaceKind),
+    Whitespace(Whitespace),
     Comment {
         kind: CommentKind,
         style: CommentStyle,
@@ -185,149 +185,6 @@ impl fmt::Display for CommentStyle {
         match self {
             CommentStyle::Line => write!(f, "Line"),
             CommentStyle::Block => write!(f, "Block"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Delimiter {
-    Paren,   // ( )
-    Brace,   // { }
-    Bracket, // [ ]
-}
-
-impl fmt::Display for Delimiter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Delimiter::Paren => write!(f, "Paren"),
-            Delimiter::Brace => write!(f, "Brace"),
-            Delimiter::Bracket => write!(f, "Bracket"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WhitespaceKind {
-    Unknown,
-
-    // single character
-    Tab,             /* \u{0009} character tabulation */
-    LineFeed,        /* \u{000A} line feed */
-    VerTab,          /* \u{000B} line tabulation */
-    FormFeed,        /* \u{000C} form feed */
-    CarRet,          /* \u{000D} carriage return */
-    Space,           /* \u{0020} space */
-    NextLine,        /* \u{0085} next line */
-    SpaceNoBrk,      /* \u{00A0} no-break space */
-    SpaceOgham,      /* \u{1680} ogham space mark */
-    EnQuad,          /* \u{2000} en quad */
-    EmQuad,          /* \u{2001} em quad */
-    EnSpace,         /* \u{2002} en space */
-    EmSpace,         /* \u{2003} em space */
-    ThirdPerEmSpace, /* \u{2004} three-per-em space */
-    FourPerEmSpace,  /* \u{2005} four-per-em space */
-    SixPerEmSpace,   /* \u{2006} six-per-em space */
-    FigureSpace,     /* \u{2007} figure space */
-    PuncSpace,       /* \u{2008} punctuation space */
-    ThinSpace,       /* \u{2009} thin space */
-    HairSpace,       /* \u{200A} hair space */
-    LineSep,         /* \u{2028} line separator */
-    ParSep,          /* \u{2029} paragraph separator */
-    NarrowSpace,     /* \u{202F} narrow no-break space */
-    MathSpace,       /* \u{205F} medium mathematical space */
-    IdeoSpace,       /* \u{3000} ideographic space */
-
-    // compound
-    CarRetLineFeed, /* carriage return + line feed */
-}
-
-impl WhitespaceKind {
-    pub fn as_char(&self) -> Option<char> {
-        Some(match self {
-            WhitespaceKind::Tab => '\t',
-            WhitespaceKind::LineFeed => '\n',
-            WhitespaceKind::VerTab => '\u{000B}',
-            WhitespaceKind::FormFeed => '\u{000C}',
-            WhitespaceKind::CarRet => '\r',
-            WhitespaceKind::Space => ' ',
-            WhitespaceKind::NextLine => '\u{0085}',
-            WhitespaceKind::SpaceNoBrk => '\u{00A0}',
-            WhitespaceKind::SpaceOgham => '\u{1680}',
-            WhitespaceKind::EnQuad => '\u{2000}',
-            WhitespaceKind::EmQuad => '\u{2001}',
-            WhitespaceKind::EnSpace => '\u{2002}',
-            WhitespaceKind::EmSpace => '\u{2003}',
-            WhitespaceKind::Unknown => '\u{2004}',
-            WhitespaceKind::ThirdPerEmSpace => '\u{2004}',
-            WhitespaceKind::FourPerEmSpace => '\u{2005}',
-            WhitespaceKind::SixPerEmSpace => '\u{2006}',
-            WhitespaceKind::FigureSpace => '\u{2007}',
-            WhitespaceKind::PuncSpace => '\u{2008}',
-            WhitespaceKind::ThinSpace => '\u{2009}',
-            WhitespaceKind::HairSpace => '\u{200A}',
-            WhitespaceKind::LineSep => '\u{2028}',
-            WhitespaceKind::ParSep => '\u{2029}',
-            WhitespaceKind::NarrowSpace => '\u{202F}',
-            WhitespaceKind::MathSpace => '\u{205F}',
-            WhitespaceKind::IdeoSpace => '\u{3000}',
-            WhitespaceKind::CarRetLineFeed => {
-                return None;
-            }
-        })
-    }
-}
-
-impl From<char> for WhitespaceKind {
-    fn from(c: char) -> Self {
-        match c {
-            ' ' => Self::Space,
-            '\r' => Self::CarRet,
-            '\n' => Self::LineFeed,
-            '\t' => Self::Tab,
-            '\u{000B}' => Self::VerTab,
-            '\u{000C}' => Self::FormFeed,
-            '\u{0085}' => Self::NextLine,
-            '\u{00A0}' => Self::SpaceNoBrk,
-            '\u{1680}' => Self::SpaceOgham,
-            '\u{2000}' => Self::EnQuad,
-            '\u{2001}' => Self::EmQuad,
-            '\u{2002}' => Self::EnSpace,
-            '\u{2003}' => Self::EmSpace,
-            '\u{2004}' => Self::ThirdPerEmSpace,
-            '\u{2005}' => Self::FourPerEmSpace,
-            '\u{2006}' => Self::SixPerEmSpace,
-            '\u{2007}' => Self::FigureSpace,
-            '\u{2008}' => Self::PuncSpace,
-            '\u{2009}' => Self::ThinSpace,
-            '\u{200A}' => Self::HairSpace,
-            '\u{2028}' => Self::LineSep,
-            '\u{2029}' => Self::ParSep,
-            '\u{202F}' => Self::NarrowSpace,
-            '\u{205F}' => Self::MathSpace,
-            '\u{3000}' => Self::IdeoSpace,
-            _ => Self::Unknown,
-        }
-    }
-}
-
-impl Into<Option<char>> for WhitespaceKind {
-    fn into(self) -> Option<char> {
-        self.as_char()
-    }
-}
-
-impl fmt::Display for WhitespaceKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WhitespaceKind::Tab => write!(f, "\\t"),
-            WhitespaceKind::LineFeed => write!(f, "\\n"),
-            WhitespaceKind::VerTab => write!(f, "\\v"),
-            WhitespaceKind::FormFeed => write!(f, "\\f"),
-            WhitespaceKind::CarRet => write!(f, "\\r"),
-            WhitespaceKind::Space => write!(f, "' '"),
-
-            WhitespaceKind::CarRetLineFeed => write!(f, "\\r\\n"),
-            c => write!(f, "{}", c.as_char().unwrap().escape_unicode()),
         }
     }
 }
@@ -495,15 +352,15 @@ impl<I: Iterator<Item = char>> Lexer<I> {
     fn scan_whitespace(&mut self, first: char) -> TokenKind {
         assert!(chars::is_whitespace(first));
 
-        let mut kind = WhitespaceKind::from(first);
+        let mut kind = Whitespace::from(first);
         // Handling the case where whitespace is CRLF
-        if kind == WhitespaceKind::CarRet {
+        if kind == Whitespace::CarRet {
             let Some(sec) = self.peek() else {
-                return TokenKind::Whitespace(WhitespaceKind::CarRet);
+                return TokenKind::Whitespace(Whitespace::CarRet);
             };
 
-            if WhitespaceKind::from(sec) == WhitespaceKind::LineFeed {
-                kind = WhitespaceKind::CarRetLineFeed;
+            if Whitespace::from(sec) == Whitespace::LineFeed {
+                kind = Whitespace::CarRetLineFeed;
                 self.advance();
             }
         }
@@ -511,9 +368,9 @@ impl<I: Iterator<Item = char>> Lexer<I> {
         while let Some(c) = self.peek() {
             if c == first {
                 self.advance();
-                if kind == WhitespaceKind::CarRetLineFeed {
+                if kind == Whitespace::CarRetLineFeed {
                     match self.peek() {
-                        Some(sec) if WhitespaceKind::from(sec) == WhitespaceKind::LineFeed => {
+                        Some(sec) if Whitespace::from(sec) == Whitespace::LineFeed => {
                             self.advance();
                         }
                         _ => {
@@ -521,9 +378,9 @@ impl<I: Iterator<Item = char>> Lexer<I> {
                             break;
                         }
                     }
-                } else if kind == WhitespaceKind::CarRet {
+                } else if kind == Whitespace::CarRet {
                     if let Some(sec) = self.peek() {
-                        if WhitespaceKind::from(sec) == WhitespaceKind::LineFeed {
+                        if Whitespace::from(sec) == Whitespace::LineFeed {
                             self.shelf(c);
                             break;
                         }
