@@ -33,12 +33,13 @@ impl<I: Iterator<Item = char>> Lexer<I> {
 
     #[inline]
     fn advance(&mut self) -> Option<char> {
-        self.cur += 1;
-
         match self.shelf.take() {
             None => self.iter.next(),
             v => v,
-        }
+        }.and_then(|c| {
+            self.cur += c.len_utf8();
+            Some(c)
+        })
     }
     
     #[inline]
@@ -51,7 +52,7 @@ impl<I: Iterator<Item = char>> Lexer<I> {
 
     #[inline]
     fn shelf(&mut self, c: char) -> Option<char> {
-        self.cur -= 1;
+        self.cur -= c.len_utf8();
         self.shelf.replace(c)
     }
 }

@@ -252,7 +252,7 @@ impl<I: Iterator<Item = char>> Lexer<I> {
     fn scan_ident(&mut self, first: char) -> TokenKind {
         assert!(chars::is_ident_start(first));
 
-        let start = self.cur - 1;
+        let start = self.cur - first.len_utf8();
         while let Some(c) = self.peek() {
             if chars::is_ident_body(c) {
                 self.advance();
@@ -272,7 +272,7 @@ impl<I: Iterator<Item = char>> Lexer<I> {
     fn scan_num_lit(&mut self, first: char) -> TokenKind {
         assert!(chars::is_digit(first));
 
-        let start = self.cur - 1;
+        let start = self.cur - first.len_utf8();
 
         let mut radix = false;
         let mut exponent = false;
