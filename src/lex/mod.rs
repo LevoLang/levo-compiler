@@ -2,7 +2,7 @@ use std::iter::Peekable;
 use std::marker::PhantomData;
 
 mod tok;
-use tok::*;
+pub use tok::*;
 
 pub trait Tok {
     fn len(&self) -> u32;
