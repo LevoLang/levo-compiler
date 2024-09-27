@@ -1,0 +1,16 @@
+[package]
+name = "levo-lex"
+version = "0.1.0"
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+readme.workspace = true
+license-file.workspace = true
+description.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+unicode-xid = "0.2.4"

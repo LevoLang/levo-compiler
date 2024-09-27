@@ -1,7 +1,9 @@
-[package]
-name = "levoc"
-version = "0.1.0"
-authors = [ "Ahraman" ]
+[workspace]
+resolver = "2"
+members = ["crates/levoc", "crates/levo-lex"]
+
+[workspace.package]
+authors = ["Ahraman"]
 edition = "2021"
 rust-version = "1.81.0"
 repository = "https://github.com/LevoLang/levo-compiler"
@@ -10,8 +12,5 @@ license-file = "LICENSE"
 description = """
 A compiler for the Levo programming language written in Rust.
 """
-keywords = [ "compiler", "levo" ]
-categories = [ "compilers" ]
-
-[dependencies]
-unicode-xid = "0.2.4"
+keywords = ["compiler", "levo"]
+categories = ["compilers"]

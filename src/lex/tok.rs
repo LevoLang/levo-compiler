@@ -1,5 +1,6 @@
 use crate::chars::{self, Delimiter, Whitespace};
-use super::{Lexer, Tok};
+
+use super::Lexer;
 
 pub struct Token {
     kind: TokenKind,
@@ -24,14 +25,12 @@ impl Token {
     pub fn kind(&self) -> &TokenKind {
         &self.kind
     }
-}
 
-impl Tok for Token {
-    fn len(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         self.len
     }
 
-    fn is_trivia(&self) -> bool {
+    pub fn is_trivia(&self) -> bool {
         self.kind().is_trivia()
     }
 }

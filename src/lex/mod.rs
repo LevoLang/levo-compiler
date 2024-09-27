@@ -4,16 +4,8 @@ use std::marker::PhantomData;
 mod tok;
 pub use tok::*;
 
-pub trait Tok {
-    fn len(&self) -> u32;
-
-    fn is_trivia(&self) -> bool;
-}
-
 pub trait Lex {
-    type Token: Tok;
-
-    fn lex(&mut self) -> Option<Self::Token>;
+    fn lex(&mut self) -> Option<Token>;
 }
 
 pub struct Lexer<I: Iterator<Item = char>> {
@@ -36,12 +28,13 @@ impl<I: Iterator<Item = char>> Lexer<I> {
         match self.shelf.take() {
             None => self.iter.next(),
             v => v,
-        }.and_then(|c| {
+        }
+        .and_then(|c| {
             self.cur += c.len_utf8();
             Some(c)
         })
     }
-    
+
     #[inline]
     fn peek(&mut self) -> Option<char> {
         match self.shelf {
@@ -58,8 +51,6 @@ impl<I: Iterator<Item = char>> Lexer<I> {
 }
 
 impl<I: Iterator<Item = char>> Lex for Lexer<I> {
-    type Token = Token;
-
     fn lex(&mut self) -> Option<Token> {
         self.lex_token()
     }
@@ -90,19 +81,19 @@ impl<L: Lex> TokenIter<L> {
 }
 
 impl<L: Lex> Iterator for TokenIter<L> {
-    type Item = L::Token;
+    type Item = Token;
 
-    fn next(&mut self) -> Option<L::Token> {
+    fn next(&mut self) -> Option<Token> {
         self.lexer.lex()
     }
 }
 
-pub struct SkipTrivia<L: Lex, I: Iterator<Item = L::Token>> {
+pub struct SkipTrivia<L: Lex, I: Iterator<Item = Token>> {
     iter: I,
     _phantom: PhantomData<L>,
 }
 
-impl<L: Lex, I: Iterator<Item = L::Token>> SkipTrivia<L, I> {
+impl<L: Lex, I: Iterator<Item = Token>> SkipTrivia<L, I> {
     pub(self) fn new(iter: I) -> Self {
         Self {
             iter: iter,
@@ -111,10 +102,10 @@ impl<L: Lex, I: Iterator<Item = L::Token>> SkipTrivia<L, I> {
     }
 }
 
-impl<L: Lex, I: Iterator<Item = L::Token>> Iterator for SkipTrivia<L, I> {
-    type Item = L::Token;
+impl<L: Lex, I: Iterator<Item = Token>> Iterator for SkipTrivia<L, I> {
+    type Item = Token;
 
-    fn next(&mut self) -> Option<L::Token> {
+    fn next(&mut self) -> Option<Token> {
         loop {
             return match self.iter.next() {
                 Some(token) => {

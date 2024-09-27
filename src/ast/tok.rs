@@ -3,8 +3,8 @@ use super::Span;
 use crate::chars::Whitespace;
 
 pub struct Token {
-    kind: TokenKind,
-    span: Span,
+    pub kind: TokenKind,
+    pub span: Span,
 }
 
 pub enum TokenKind {

@@ -3,10 +3,17 @@
 version = 3
 
 [[package]]
-name = "levoc"
+name = "levo-lex"
 version = "0.1.0"
 dependencies = [
  "unicode-xid",
+]
+
+[[package]]
+name = "levoc"
+version = "0.1.0"
+dependencies = [
+ "levo-lex",
 ]
 
 [[package]]
