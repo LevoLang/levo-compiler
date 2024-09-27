@@ -68,7 +68,6 @@ impl Whitespace {
             Whitespace::EmQuad => '\u{2001}',
             Whitespace::EnSpace => '\u{2002}',
             Whitespace::EmSpace => '\u{2003}',
-            Whitespace::Unknown => '\u{2004}',
             Whitespace::ThirdPerEmSpace => '\u{2004}',
             Whitespace::FourPerEmSpace => '\u{2005}',
             Whitespace::SixPerEmSpace => '\u{2006}',
@@ -81,7 +80,7 @@ impl Whitespace {
             Whitespace::NarrowSpace => '\u{202F}',
             Whitespace::MathSpace => '\u{205F}',
             Whitespace::IdeoSpace => '\u{3000}',
-            Whitespace::CarRetLineFeed => {
+            Whitespace::CarRetLineFeed | Whitespace::Unknown => {
                 return None;
             }
         })
