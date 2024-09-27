@@ -1,7 +1,4 @@
-use std::fmt;
-
 use crate::chars::{self, Delimiter, Whitespace};
-
 use super::{Lexer, Tok};
 
 pub struct Token {
@@ -39,8 +36,8 @@ impl Tok for Token {
     }
 }
 
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Token { kind, len } = self;
         write!(f, "Token {{ kind: {kind}, len: {len} }}")
     }
@@ -99,8 +96,8 @@ impl TokenKind {
     }
 }
 
-impl fmt::Display for TokenKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TokenKind::*;
 
         match self {
@@ -148,8 +145,8 @@ pub enum LitKind {
     Real,
 }
 
-impl fmt::Display for LitKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for LitKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LitKind::Int => write!(f, "Int"),
             LitKind::Real => write!(f, "Real"),
@@ -164,8 +161,8 @@ pub enum CommentKind {
     InnerDoc,
 }
 
-impl fmt::Display for CommentKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for CommentKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommentKind::Normal => write!(f, "Normal"),
             CommentKind::Doc => write!(f, "Doc"),
@@ -180,8 +177,8 @@ pub enum CommentStyle {
     Block,
 }
 
-impl fmt::Display for CommentStyle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for CommentStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommentStyle::Line => write!(f, "Line"),
             CommentStyle::Block => write!(f, "Block"),
