@@ -1,20 +1,10 @@
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Delimiter {
-    Paren,   // ( )
-    Brace,   // { }
-    Bracket, // [ ]
-}
-
-impl fmt::Display for Delimiter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Delimiter::Paren => write!(f, "Paren"),
-            Delimiter::Brace => write!(f, "Brace"),
-            Delimiter::Bracket => write!(f, "Bracket"),
-        }
-    }
+pub enum Delim {
+    Paren, // ( )
+    Brace, // { }
+    Brack, // [ ]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,7 +43,7 @@ pub enum Whitespace {
 }
 
 impl Whitespace {
-    pub fn as_char(self) -> Option<char> {
+    pub fn into_char(self) -> Option<char> {
         Some(match self {
             Whitespace::Tab => '\t',
             Whitespace::LineFeed => '\n',
@@ -136,7 +126,7 @@ impl From<char> for Whitespace {
 
 impl Into<Option<char>> for Whitespace {
     fn into(self) -> Option<char> {
-        self.as_char()
+        self.into_char()
     }
 }
 
@@ -151,7 +141,7 @@ impl fmt::Display for Whitespace {
             Whitespace::Space => write!(f, "' '"),
 
             Whitespace::CarRetLineFeed => write!(f, "\\r\\n"),
-            c => write!(f, "{}", c.as_char().unwrap().escape_unicode()),
+            c => write!(f, "{}", c.into_char().unwrap().escape_unicode()),
         }
     }
 }
@@ -182,5 +172,5 @@ pub fn is_newline(c: char) -> bool {
     || c == '\n'        // U+000A line feed
     || c == '\u{0085}'  // U+0085 next line
     || c == '\u{2028}'  // U+2028 line separator
-    || c == '\u{2029}'  // U+2029 paragraph separator
+    || c == '\u{2029}' // U+2029 paragraph separator
 }
