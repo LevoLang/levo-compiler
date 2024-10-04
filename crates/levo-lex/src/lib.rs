@@ -71,14 +71,14 @@ impl Comment {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommentKind {
     Normal,
     Doc,
     InnerDoc,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommentStyle {
     Line,
     Block,
