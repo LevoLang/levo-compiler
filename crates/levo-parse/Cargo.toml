@@ -1,5 +1,5 @@
 [package]
-name = "levoc"
+name = "levo-parse"
 version = "0.1.0"
 
 authors.workspace = true
@@ -14,4 +14,3 @@ categories.workspace = true
 
 [dependencies]
 levo-lex = { path = "../levo-lex" }
-levo-parse = { path = "../levo-parse" }
