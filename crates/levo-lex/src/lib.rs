@@ -269,7 +269,7 @@ impl Lex for Cursor<'_> {
             '/' => match self.first() {
                 Some('/') => self.comment(CommentStyle::Line),
                 Some('*') => self.comment(CommentStyle::Block),
-                _ => TokenKind::Minus,
+                _ => TokenKind::Slash,
             },
 
             // whitespace
