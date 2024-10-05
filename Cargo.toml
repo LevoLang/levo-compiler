@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/compiler/levoc",
+    "crates/compiler/levoc-lex",
     "crates/compiler/levoc-parse",
 ]
 

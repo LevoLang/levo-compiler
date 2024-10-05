@@ -10,5 +10,9 @@ dependencies = [
 ]
 
 [[package]]
+name = "levoc-lex"
+version = "0.1.0"
+
+[[package]]
 name = "levoc-parse"
 version = "0.1.0"
