@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/levoc", "crates/levo-lex", "crates/levo-parse"]
+members = [
+    "crates/compiler/levoc",
+    "crates/compiler/levoc-parse",
+]
 
 [workspace.package]
 authors = ["Ahraman"]
