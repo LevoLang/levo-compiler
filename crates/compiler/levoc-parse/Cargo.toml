@@ -13,3 +13,4 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+levoc-lex = { path = "../levoc-lex" }
